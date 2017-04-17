@@ -146,30 +146,6 @@
     }
 }
 
-- (void)stopAnimation
-{
-    [super stopAnimation];
-    if ([self isPreview] == FALSE)
-    {
-        // remove glview from screensaver view
-        [self removeFromSuperview];
-    }
-    if (   ([self isPreview] == FALSE)
-        && (loadAnimationToMem == TRUE))
-    {
-        /*clean all precalulated bitmap images*/
-        [animationImages removeAllObjects];
-        animationImages = nil;
-    }
-    img = nil;
-    currFrameCount = FRAME_COUNT_NOT_USED;
-}
-
-- (BOOL)isOpaque {
-    // this keeps Cocoa from unneccessarily redrawing our superview
-    return YES;
-}
-
 - (void)animateOneFrame
 {
     // set some values screensaver and GIF image size
@@ -391,11 +367,6 @@
     return;
 }
 
-- (BOOL)hasConfigureSheet
-{
-    // tell ScreenSaverEngine that screensaver has an Options dialog
-    return YES;
-}
 
 - (NSWindow*)configureSheet
 {
@@ -463,181 +434,12 @@
 }
 
 
-- (IBAction)navigateSegmentButton:(id)sender
-{
-    // check witch segment of segment button was pressed and than start the according method
-    NSSegmentedControl *control = (NSSegmentedControl *)sender;    
-    NSInteger selectedSeg = [control selectedSegment];
-    
-    switch (selectedSeg) {
-        case LOAD_BTN:
-            [self loadAgent];
-            break;
-        case UNLOAD_BTN:
-            [self unloadAgent];
-            break;
-        default:
-            break;
-    }
-}
 
 
-- (IBAction)closeConfigOk:(id)sender {
-    // read values from GUI elements
-    float frameRate = [self.sliderFpsManual floatValue];
-    NSString *gifFileName = [self.textFieldFileUrl stringValue];
-    BOOL frameRateManual = self.checkButtonSetFpsManual.state;
-    BOOL loadAniToMem = self.checkButtonLoadIntoMem.state;
-    NSInteger viewOpt = self.popupButtonViewOptions.selectedTag;
-    NSColor *colorPicked = self.colorWellBackgrColor.color;
-    
-    // write values back to screensver defaults
-    ScreenSaverDefaults *defaults = [ScreenSaverDefaults defaultsForModuleWithName:[[NSBundle bundleForClass: [self class]] bundleIdentifier]];
-    [defaults setObject:gifFileName forKey:@"GifFileName"];
-    [defaults setFloat:frameRate forKey:@"GifFrameRate"];
-    [defaults setBool:frameRateManual forKey:@"GifFrameRateManual"];
-    [defaults setBool:loadAniToMem forKey:@"LoadAniToMem"];
-    [defaults setInteger:viewOpt forKey:@"ViewOpt"];
-    [defaults setFloat:colorPicked.redComponent forKey:@"BackgrRed"];
-    [defaults setFloat:colorPicked.greenComponent forKey:@"BackgrGreen"];
-    [defaults setFloat:colorPicked.blueComponent forKey:@"BackgrBlue"];
-    [defaults synchronize];
-    
-    // set new values to object attributes
-    viewOption = viewOpt;
-    backgrRed = colorPicked.redComponent;
-    backgrGreen = colorPicked.greenComponent;
-    backgrBlue = colorPicked.blueComponent;
-    
-    // close color dialog and options dialog
-    [[NSColorPanel sharedColorPanel] close];
-    [[NSApplication sharedApplication] endSheet:self.optionsPanel];
-}
 
-- (IBAction)closeConfigCancel:(id)sender {
-    // close color dialog and options dialog
-    [[NSColorPanel sharedColorPanel] close];
-    [[NSApplication sharedApplication] endSheet:self.optionsPanel];
-}
 
-- (IBAction)pressCheckboxSetFpsManual:(id)sender {
-    // enable or disable slider depending on checkbox
-    BOOL frameRateManual = self.checkButtonSetFpsManual.state;
-    if (frameRateManual)
-    {
-        [self.sliderFpsManual setEnabled:YES];
-    }
-    else
-    {
-        [self.sliderFpsManual setEnabled:NO];
-    }
-}
 
-- (IBAction)selectSliderFpsManual:(id)sender {
-    // update label with actual selected value of slider
-    [self.labelFpsManual setStringValue:[self.sliderFpsManual stringValue]];
-}
 
-- (IBAction)sendFileButtonAction:(id)sender{
-    
-    NSOpenPanel* openDlg = [NSOpenPanel openPanel];
-    
-    // Enable the selection of files in the dialog.
-    [openDlg setCanChooseFiles:YES];
-    
-    // Disable the selection of directories in the dialog.
-    [openDlg setCanChooseDirectories:NO];
-    
-    // Disable the selection of more than one file
-    [openDlg setAllowsMultipleSelection:NO];
 
-    // set dialog to last selected file
-    [openDlg setDirectoryURL:[NSURL URLWithString:[self.textFieldFileUrl stringValue]]];
-    
-    // try to 'focus' only on GIF files (Yes, I know all image types are working with NSImage)
-    [openDlg setAllowedFileTypes:[[NSArray alloc] initWithObjects:@"gif", @"GIF", nil]];
-    
-    // Display the dialog.  If the OK button was pressed,
-    // process the files.
-    if ( [openDlg runModal] == NSOKButton )
-    {
-        // Get an array containing the full filenames of all
-        // files and directories selected.
-        NSArray* files = [openDlg URLs];
-        
-        // set GUI element with selected URL
-        [self.textFieldFileUrl setStringValue:[files objectAtIndex:0]];
-        
-        // update file fps in GUI
-        CGImageSourceRef source = CGImageSourceCreateWithURL ( (__bridge CFURLRef) [NSURL URLWithString:[self.textFieldFileUrl stringValue]], NULL);
-        if (source)
-        {
-            CFDictionaryRef cfdProperties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil);
-            NSDictionary *properties = CFBridgingRelease(cfdProperties);
-            float duration = [[[properties objectForKey:(__bridge NSString *)kCGImagePropertyGIFDictionary]
-                               objectForKey:(__bridge NSString *) kCGImagePropertyGIFUnclampedDelayTime] doubleValue];
-            CFRelease(source);
-            float fps = 1/duration;
-            
-            [self.labelFpsGif setStringValue:[NSString stringWithFormat:@"%2.1f", fps]];
-        }
-        else
-        {
-            [self.labelFpsGif setStringValue:@"0.0"];
-        }
-        
-    }
-    
-}
-
-- (void)loadAgent {
-    // create the plist agent file
-    NSMutableDictionary *plist = [[NSMutableDictionary alloc] init];
-    
-    // check if LaunchAgend directory is there or not
-    NSString *userLaunchAgentsDir = [[NSString alloc] initWithFormat:@"%@%@%@", @"/Users/", NSUserName(), @"/Library/LaunchAgents"];
-    BOOL launchAgentDirExists = [[NSFileManager defaultManager] fileExistsAtPath:userLaunchAgentsDir];
-    if (launchAgentDirExists == NO)
-    {
-        // if directory is not there create it
-        [[NSFileManager defaultManager] createDirectoryAtPath:userLaunchAgentsDir withIntermediateDirectories:YES attributes:nil error:nil];
-    }
-    
-    
-    // set values here...
-    NSDictionary *cfg  = @{@"Label":@"com.stino.animatedgif", @"ProgramArguments":@[@"/System/Library/Frameworks/ScreenSaver.framework/Resources/ScreenSaverEngine.app/Contents/MacOS/ScreenSaverEngine",@"-background"], @"KeepAlive":@{@"OtherJobEnabled":@{@"com.apple.SystemUIServer.agent":@YES,@"com.apple.Finder":@YES,@"com.apple.Dock.agent":@YES}}, @"ThrottleInterval":@0};
-    [plist addEntriesFromDictionary:cfg];
-    
-    // saves the agent plist file
-    NSString *userLaunchAgentsPath = [[NSString alloc] initWithFormat:@"%@%@%@", @"/Users/", NSUserName(), @"/Library/LaunchAgents/com.stino.animatedgif.plist"];
-    [plist writeToFile:userLaunchAgentsPath atomically:YES];
-    [plist removeAllObjects];
-    
-    // start the launch agent
-    NSString *cmdstr = [[NSString alloc] initWithFormat:@"launchctl load %@ &", userLaunchAgentsPath];
-    system([cmdstr cStringUsingEncoding:NSUTF8StringEncoding]);
-}
-
-- (void)unloadAgent {
-    // stop the launch agent
-    NSString *userLaunchAgentsPath = [[NSString alloc] initWithFormat:@"%@%@%@", @"/Users/", NSUserName(), @"/Library/LaunchAgents/com.stino.animatedgif.plist"];
-    NSString *cmdstr = [[NSString alloc] initWithFormat:@"%@%@", @"launchctl unload ", userLaunchAgentsPath];
-    system([cmdstr cStringUsingEncoding:NSUTF8StringEncoding]);
-    
-    // remove the plist agent file
-    [[NSFileManager defaultManager] removeItemAtPath:userLaunchAgentsPath error:nil];
-}
-
-- (float)pictureRatioFromWidth:(float)iWidth andHeight:(float)iHeight {
-    return iWidth/iHeight;
-}
-
-- (float)calcWidthFromRatio:(float)iRatio andHeight:(float)iHeight {
-    return iRatio*iHeight;
-}
-
-- (float)calcHeightFromRatio:(float)iRatio andWidth:(float)iWidth {
-    return iWidth/iRatio;
-}
 
 @end

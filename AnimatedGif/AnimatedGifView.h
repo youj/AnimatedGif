@@ -32,11 +32,12 @@
 
 @interface AnimatedGifView : ScreenSaverView {
     // keep track of whether or not drawRect: should erase the background
-    NSMutableArray *animationImages;
+    NSMutableArray (*animationImages);
     NSInteger viewOption;
     NSInteger currFrameCount;
     NSInteger maxFrameCount;
-    NSImage *img;
+    NSArray<NSString> *imageFiles;
+    NSImage (*imgs);
     NSBitmapImageRep *gifRep;
     float backgrRed;
     float backgrGreen;
